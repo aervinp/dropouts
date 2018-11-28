@@ -36,7 +36,8 @@ pop <-
          bilingual = as.numeric(language == "2"),
          years_school = as.integer(years_school),
          illiterate = as.numeric(literacy == "6"),
-         enrolled_school = as.numeric(as.integer(enrolled_school) %in% c(1:18)))
+         enrolled_school = as.numeric(as.integer(enrolled_school) %in% c(1:18))) %>% 
+  mutate(years_school = na_if(years_school, 99))
 
 #child file: select sample of observations based on born in Paraguay, language spoken, and age
 children <- 
@@ -97,7 +98,38 @@ children <-
          dropout = as.numeric(years_school < 9 & enrolled_school == 0)) %>% 
   select(child_id, never_started_school, years_school, enrolled_school, delayed_school, age, dropout, everything())
 
-
-# If neither father or mother is in the house use female max and then male max.
+# If neither father or mother is in the house use female max and male max.
 # check how many don't have mothers
-table(children$delayed_school)
+table(children$caretaker)
+
+hh_females <- 
+  pop %>% 
+  filter(female == 1 & age >= 14) %>% 
+  group_by(hhid) %>% 
+  summarize(femcare_age = mean(age), femcare_illiterate = max(illiterate), femcare_language = min(language),
+            femcare_dpto_born = min(dpto_born), femcare_area_born = max(area_born), femcare_years_school = mean(years_school, na.rm = TRUE)) %>% 
+  mutate(femcare_guarani = as.numeric(femcare_language == 1),
+         femcare_spanish = as.numeric(femcare_language == 3),
+         femcare_bilingual = as.numeric(femcare_language == 2),
+         femcare_present = 1)
+
+hh_males <- 
+  pop %>% 
+  filter(female == 0 & age >= 14) %>% 
+  group_by(hhid) %>% 
+  summarize(mencare_age = mean(age), mencare_illiterate = max(illiterate), mencare_language = min(language),
+            mencare_dpto_born = min(dpto_born), mencare_area_born = max(area_born), mencare_years_school = mean(years_school, na.rm = TRUE)) %>% 
+  mutate(mencare_guarani = as.numeric(mencare_language == 1),
+         mencare_spanish = as.numeric(mencare_language == 3),
+         mencare_bilingual = as.numeric(mencare_language == 2),
+         mencare_present = 1)
+
+# merge to children
+children <- 
+  children %>% 
+  left_join(hh_females) %>% 
+  left_join(hh_males) %>% 
+  replace_na(list(femcare_present = 0, mencare_present = 0))
+
+#fill in mother and fathers info with hh_females and hh_males
+#create birth order? twin? 
