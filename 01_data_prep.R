@@ -77,12 +77,8 @@ father <-
          father_spanish, father_bilingual, father_dpto_born, father_area_born, father_years_scho) %>% 
   rename(father_id = person_id)
 
-<<<<<<< HEAD
+
 # put mother and father information to the child
-=======
-# If neither father or mother is in the house use female max and then male max.
-# check how many don't have mothers
->>>>>>> db26c9deee35a369f6e3d73bbecfe312b381c1f6
 children <- 
   children %>% 
   left_join(mother) %>% 
@@ -92,11 +88,6 @@ children <-
                                mother_present == 0 & father_present == 1 ~ "father",
                                mother_present == 1 & father_present == 0 ~ "mother",
                                mother_present == 0 & father_present == 0 ~ "other"))
-<<<<<<< HEAD
-=======
-
-table(t$caretaker)
->>>>>>> db26c9deee35a369f6e3d73bbecfe312b381c1f6
 
 # If neither father or mother is in the house use female max and then male max.
 # check how many don't have mothers
