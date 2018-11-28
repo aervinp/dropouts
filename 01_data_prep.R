@@ -17,12 +17,15 @@ house <-
   house %>% 
   rename(floor_type = V04, wall_type = V05, roof_type = V03)
 
-#check your work
-head(pop$years_scho)
-
 #cleaning population file
 pop <- 
   pop %>% 
+  select(c("UPM", "NVIVI", "NHOGA", "DPTO", "AREA", 
+           "age", "sex", "language", "years_scho", "hh_relation",
+           "line_mother", "line_father", "level_grade_father", 
+           "level_grade_mother", "birth_day", "birth_month", "birth_year",
+           "literacy", "enrolled_school", "reason_not_enrolled",
+           "dpto_born", "area_born", "survey_line", "FEX")) %>% 
   mutate(hhid = paste(UPM, NVIVI, NHOGA, sep = "_"),
          person_id = paste(UPM, NVIVI, NHOGA, survey_line, sep = "_"),
          mother_id = paste(UPM, NVIVI, NHOGA, line_mother, sep = "_"),
@@ -35,30 +38,56 @@ pop <-
          illiterate = as.numeric(literacy == "6"),
          enrolled_school = as.numeric(as.integer(enrolled_school) %in% c(1:18)))
 
-#select sample of observations based on born in Paraguay, language spoken, and age
+#child file: select sample of observations based on born in Paraguay, language spoken, and age
 children <- 
   pop %>% 
   filter((dpto_born %in% c(0:17)) & (age %in% c(7:18)) & as.numeric(language %in% c(1:3))) %>% 
-  rename(child_id = person_id)
-
-# left off here
-mother <- 
-  pop %>% 
-  select(person_id, mother_id, line_mother) %>% 
-  filter(line_mother != 0) %>% 
   rename(child_id = person_id) %>% 
-  select(child_id, mother_id)
+  mutate(child_present = 1)
 
+# mother file
 mother <- 
-  mother %>% 
-  left_join(pop, by = c("mother_id" = "person_id")) %>% 
-  select(hhid, mother_id, mother_id.y, line_mother, child_id, survey_line, everything())
-
-
-#select variables
-pop <- 
   pop %>% 
-  select(c("hhid", "UPM", "NVIVI", "NHOGA", "DPTO", "AREA", 
-           "age", "female", "years_scho", "language",
-           "FEX"))
+  select(mother_id, line_mother) %>% 
+  filter(line_mother != 0) %>% 
+  distinct(mother_id) %>% 
+  mutate(mother_present = 1) %>% 
+  rename(person_id = mother_id) %>% 
+  left_join(pop) %>% 
+  rename(mother_age = age, mother_illiterate = illiterate, mother_guarani = guarani,
+         mother_spanish = spanish, mother_bilingual = bilingual, mother_dpto_born = dpto_born,
+         mother_area_born = area_born, mother_years_scho = years_scho) %>% 
+  select(person_id, mother_present, mother_age, mother_illiterate, mother_guarani,
+         mother_spanish, mother_bilingual, mother_dpto_born, mother_area_born, mother_years_scho) %>% 
+  rename(mother_id = person_id)
+  
+# father file
+father <- 
+  pop %>% 
+  select(father_id, line_father) %>% 
+  filter(line_father != 0) %>% 
+  distinct(father_id) %>% 
+  mutate(father_present = 1) %>% 
+  rename(person_id = father_id) %>% 
+  left_join(pop) %>% 
+  rename(father_age = age, father_illiterate = illiterate, father_guarani = guarani,
+         father_spanish = spanish, father_bilingual = bilingual, father_dpto_born = dpto_born,
+         father_area_born = area_born, father_years_scho = years_scho) %>% 
+  select(person_id, father_present, father_age, father_illiterate, father_guarani,
+         father_spanish, father_bilingual, father_dpto_born, father_area_born, father_years_scho) %>% 
+  rename(father_id = person_id)
+
+# If neither father or mother is in the house use female max and then male max.
+# check how many don't have mothers
+children <- 
+  children %>% 
+  left_join(mother) %>% 
+  left_join(father) %>% 
+  replace_na(list(mother_present = 0, father_present = 0, child_present = 0)) %>% 
+  mutate(caretaker = case_when(mother_present == 1 & father_present == 1 ~ "joint",
+                               mother_present == 0 & father_present == 1 ~ "father",
+                               mother_present == 1 & father_present == 0 ~ "mother",
+                               mother_present == 0 & father_present == 0 ~ "other"))
+
+table(t$caretaker)
 
