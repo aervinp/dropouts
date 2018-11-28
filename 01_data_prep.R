@@ -6,7 +6,7 @@ house <- read_delim(here::here("data", "eph2017_vivienda.csv"), delim = ";")
 #rename
 pop <- 
   pop %>% 
-  rename(age = P02, sex = P06, language = ED01, years_scho = añoest,
+  rename(age = P02, sex = P06, language = ED01, years_school = añoest,
          hh_relation = P03, line_mother = P05M, line_father = P05P,
          level_grade_father = NPAD, level_grade_mother = NMAD,
          birth_day = P08D, birth_month = P08M, birth_year = P08A,
@@ -21,7 +21,7 @@ house <-
 pop <- 
   pop %>% 
   select(c("UPM", "NVIVI", "NHOGA", "DPTO", "AREA", 
-           "age", "sex", "language", "years_scho", "hh_relation",
+           "age", "sex", "language", "years_school", "hh_relation",
            "line_mother", "line_father", "level_grade_father", 
            "level_grade_mother", "birth_day", "birth_month", "birth_year",
            "literacy", "enrolled_school", "reason_not_enrolled",
@@ -34,7 +34,7 @@ pop <-
          guarani = as.numeric(language == "1"),
          spanish = as.numeric(language == "3"),
          bilingual = as.numeric(language == "2"),
-         years_scho = as.integer(years_scho),
+         years_school = as.integer(years_school),
          illiterate = as.numeric(literacy == "6"),
          enrolled_school = as.numeric(as.integer(enrolled_school) %in% c(1:18)))
 
@@ -56,9 +56,9 @@ mother <-
   left_join(pop) %>% 
   rename(mother_age = age, mother_illiterate = illiterate, mother_guarani = guarani,
          mother_spanish = spanish, mother_bilingual = bilingual, mother_dpto_born = dpto_born,
-         mother_area_born = area_born, mother_years_scho = years_scho) %>% 
+         mother_area_born = area_born, mother_years_school = years_school) %>% 
   select(person_id, mother_present, mother_age, mother_illiterate, mother_guarani,
-         mother_spanish, mother_bilingual, mother_dpto_born, mother_area_born, mother_years_scho) %>% 
+         mother_spanish, mother_bilingual, mother_dpto_born, mother_area_born, mother_years_school) %>% 
   rename(mother_id = person_id)
   
 # father file
@@ -72,9 +72,9 @@ father <-
   left_join(pop) %>% 
   rename(father_age = age, father_illiterate = illiterate, father_guarani = guarani,
          father_spanish = spanish, father_bilingual = bilingual, father_dpto_born = dpto_born,
-         father_area_born = area_born, father_years_scho = years_scho) %>% 
+         father_area_born = area_born, father_years_school = years_school) %>% 
   select(person_id, father_present, father_age, father_illiterate, father_guarani,
-         father_spanish, father_bilingual, father_dpto_born, father_area_born, father_years_scho) %>% 
+         father_spanish, father_bilingual, father_dpto_born, father_area_born, father_years_school) %>% 
   rename(father_id = person_id)
 
 
@@ -89,6 +89,15 @@ children <-
                                mother_present == 1 & father_present == 0 ~ "mother",
                                mother_present == 0 & father_present == 0 ~ "other"))
 
+# enrollment, delays, and dropouts
+children <- 
+  children %>% 
+  mutate(never_started_school = as.numeric(years_school == 0 & enrolled_school == 0),
+         delayed_school = as.numeric(years_school<9 & ((age-years_school) > 7) & enrolled_school == 1),
+         dropout = as.numeric(years_school < 9 & enrolled_school == 0)) %>% 
+  select(child_id, never_started_school, years_school, enrolled_school, delayed_school, age, dropout, everything())
+
+
 # If neither father or mother is in the house use female max and then male max.
 # check how many don't have mothers
-table(t$caretaker)
+table(children$delayed_school)
