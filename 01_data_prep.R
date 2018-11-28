@@ -89,5 +89,5 @@ children <-
                                mother_present == 0 & father_present == 0 ~ "other"))
 
 # If neither father or mother is in the house use female max and then male max.
-# check how many don't have mothers
+# check how many don't have mothers 
 table(t$caretaker)
