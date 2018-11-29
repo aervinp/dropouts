@@ -1,9 +1,11 @@
 library(tidyverse)
 
+# Input data ---------------------
+
 pop <- read_delim(here::here("data", "eph2017_pobulacion.csv"), delim = ";")
 house <- read_delim(here::here("data", "eph2017_vivienda.csv"), delim = ";")
 
-#rename
+# Select and rename variables -------------------------------
 pop <- 
   pop %>% 
   rename(age = P02, sex = P06, language = ED01, years_school = añoest,
@@ -15,9 +17,20 @@ pop <-
 
 house <- 
   house %>% 
+  mutate(hhid = paste(UPM, NVIVI, NHOGA, sep = "_")) %>% 
   rename(floor_type = V04, wall_type = V05, roof_type = V03)
 
-#cleaning population file
+# Housing -------------------------
+
+advanced_housing <- 
+  house %>% 
+  mutate(adv_housing = case_when((floor_type != 1 & wall_type %in% c(1:5) & roof_type %in% c(1:6)) ~ 1,
+                                      TRUE ~ 0)) %>% 
+  select(hhid, adv_housing)
+
+rm(house)
+
+# Population file   ------------------------------------
 pop <- 
   pop %>% 
   select(c("UPM", "NVIVI", "NHOGA", "DPTO", "AREA", 
@@ -37,9 +50,10 @@ pop <-
          years_school = as.integer(years_school),
          illiterate = as.numeric(literacy == "6"),
          enrolled_school = as.numeric(as.integer(enrolled_school) %in% c(1:18))) %>% 
-  mutate(years_school = na_if(years_school, 99))
+  mutate(years_school = na_if(years_school, 99)) %>% 
+  left_join(advanced_housing)
 
-#child file: select sample of observations based on born in Paraguay, language spoken, and age
+# Child file: select sample of observations based on born in Paraguay, language spoken, and age --------------------
 children <- 
   pop %>% 
   filter((dpto_born %in% c(0:17)) & (age %in% c(7:18)) & as.numeric(language %in% c(1:3))) %>% 
@@ -67,15 +81,16 @@ child_twins <-
   children %>%
   janitor::get_dupes(hhid, birth_day, birth_month, birth_year) %>% 
   distinct(hhid, birth_day, birth_month, birth_year) %>% 
-  mutate(twin = 1)
+  mutate(twins = 1)
 
 children <- 
   children %>% 
   left_join(child_twins) %>%
-  replace_na(twin = 0)
+  mutate(twins = replace_na(twins, 0))
 
+rm(child_twins)
 
-# mother file
+# Mother file ------------------------------------------
 mother <- 
   pop %>% 
   select(mother_id, line_mother) %>% 
@@ -91,7 +106,7 @@ mother <-
          mother_spanish, mother_bilingual, mother_dpto_born, mother_area_born, mother_years_school) %>% 
   rename(mother_id = person_id)
   
-# father file
+# Father file  ---------------------------------------
 father <- 
   pop %>% 
   select(father_id, line_father) %>% 
@@ -108,7 +123,7 @@ father <-
   rename(father_id = person_id)
 
 
-# put mother and father information to the child
+# Merge mother and father information to the child ---------------------------------
 children <- 
   children %>% 
   left_join(mother) %>% 
@@ -118,6 +133,11 @@ children <-
                                mother_present == 0 & father_present == 1 ~ "father",
                                mother_present == 1 & father_present == 0 ~ "mother",
                                mother_present == 0 & father_present == 0 ~ "other"))
+
+rm(mother)
+rm(father)
+
+# Caretaker info -------------------------------------
 
 # If neither father or mother is in the house use female max and male max.
 # check how many don't have mothers
@@ -154,7 +174,7 @@ children <-
   left_join(hh_males) %>% 
   replace_na(list(femcare_present = 0, mencare_present = 0))
 
-#fill in mother and fathers info with hh_females and hh_males
+# Fill in mother and fathers info with hh_females and hh_males  -------------------------
 children_fill <- 
   children %>% 
   mutate(mother_age = ifelse(is.na(mother_age), femcare_age, mother_age),
@@ -190,11 +210,23 @@ children_fill <-
          father_area_born = ifelse(is.na(father_area_born), femcare_area_born, father_area_born),
          father_years_school = ifelse(is.na(father_years_school), femcare_years_school, father_years_school))
 
+rm(hh_males)
+rm(hh_females)
+
 #if wanted to fill in missings with medians, but seem better to use household information as above.
 # mutate_at(vars(mother_age, mother_years_school, father_age, father_years_school), ~ ifelse(is.na(.x), median(.x, na.rm = TRUE), .x)) %>%
 
 # check for variables with NA's
-# names(children_fill %>% select_if(function(x) any(is.na(x))))
+dropvars <- names(children_fill %>% select_if(function(x) any(is.na(x))))
+
+children_fill <- 
+  children_fill %>% 
+  select(-dropvars, hh_relation, line_mother, line_father, level_grade_father, level_grade_mother,
+         survey_line, mother_id, father_id)
+
+
+# Prep analysis ---------------------------------------------------------------
+names(children_fill)
 
 #some exploration
 # p <- qplot(data = children_fill, mother_age, father_age, xlab = "", ylab = "")
