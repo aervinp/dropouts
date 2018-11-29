@@ -1,2 +1,5 @@
 # packrat::init()
 # install.packages("tidyverse", "here")
+library(tidyverse)
+library(here)
+library(janitor)

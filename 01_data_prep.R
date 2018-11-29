@@ -46,6 +46,35 @@ children <-
   rename(child_id = person_id) %>% 
   mutate(child_present = 1)
 
+# enrollment, delays, and dropouts
+children <- 
+  children %>% 
+  mutate(never_started_school = as.numeric(years_school == 0 & enrolled_school == 0),
+         delayed_school = as.numeric(years_school<9 & ((age-years_school) > 7) & enrolled_school == 1),
+         dropout = as.numeric(years_school < 9 & enrolled_school == 0)) %>% 
+  select(child_id, never_started_school, years_school, enrolled_school, delayed_school, age, dropout, everything())
+
+#birth order
+children <- 
+  children %>% 
+  group_by(hhid) %>% 
+  arrange(desc(age), .by_group = TRUE) %>% 
+  mutate(birth_order = row_number()) %>% 
+  ungroup()
+
+#twins
+child_twins <- 
+  children %>%
+  janitor::get_dupes(hhid, birth_day, birth_month, birth_year) %>% 
+  distinct(hhid, birth_day, birth_month, birth_year) %>% 
+  mutate(twin = 1)
+
+children <- 
+  children %>% 
+  left_join(child_twins) %>%
+  replace_na(twin = 0)
+
+
 # mother file
 mother <- 
   pop %>% 
@@ -90,14 +119,6 @@ children <-
                                mother_present == 1 & father_present == 0 ~ "mother",
                                mother_present == 0 & father_present == 0 ~ "other"))
 
-# enrollment, delays, and dropouts
-children <- 
-  children %>% 
-  mutate(never_started_school = as.numeric(years_school == 0 & enrolled_school == 0),
-         delayed_school = as.numeric(years_school<9 & ((age-years_school) > 7) & enrolled_school == 1),
-         dropout = as.numeric(years_school < 9 & enrolled_school == 0)) %>% 
-  select(child_id, never_started_school, years_school, enrolled_school, delayed_school, age, dropout, everything())
-
 # If neither father or mother is in the house use female max and male max.
 # check how many don't have mothers
 table(children$caretaker)
@@ -106,23 +127,25 @@ hh_females <-
   pop %>% 
   filter(female == 1 & age >= 14) %>% 
   group_by(hhid) %>% 
-  summarize(femcare_age = mean(age), femcare_illiterate = max(illiterate), femcare_language = min(language),
+  summarize(femcare_age = max(age), femcare_illiterate = max(illiterate), femcare_language = min(language),
             femcare_dpto_born = min(dpto_born), femcare_area_born = max(area_born), femcare_years_school = mean(years_school, na.rm = TRUE)) %>% 
   mutate(femcare_guarani = as.numeric(femcare_language == 1),
          femcare_spanish = as.numeric(femcare_language == 3),
          femcare_bilingual = as.numeric(femcare_language == 2),
-         femcare_present = 1)
+         femcare_present = 1) %>% 
+  ungroup()
 
 hh_males <- 
   pop %>% 
   filter(female == 0 & age >= 14) %>% 
   group_by(hhid) %>% 
-  summarize(mencare_age = mean(age), mencare_illiterate = max(illiterate), mencare_language = min(language),
+  summarize(mencare_age = max(age), mencare_illiterate = max(illiterate), mencare_language = min(language),
             mencare_dpto_born = min(dpto_born), mencare_area_born = max(area_born), mencare_years_school = mean(years_school, na.rm = TRUE)) %>% 
   mutate(mencare_guarani = as.numeric(mencare_language == 1),
          mencare_spanish = as.numeric(mencare_language == 3),
          mencare_bilingual = as.numeric(mencare_language == 2),
-         mencare_present = 1)
+         mencare_present = 1) %>% 
+  ungroup()
 
 # merge to children
 children <- 
@@ -132,4 +155,53 @@ children <-
   replace_na(list(femcare_present = 0, mencare_present = 0))
 
 #fill in mother and fathers info with hh_females and hh_males
-#create birth order? twin? 
+children_fill <- 
+  children %>% 
+  mutate(mother_age = ifelse(is.na(mother_age), femcare_age, mother_age),
+         mother_illiterate = ifelse(is.na(mother_illiterate), femcare_illiterate, mother_illiterate),
+         mother_guarani = ifelse(is.na(mother_guarani), femcare_guarani, mother_guarani),
+         mother_spanish = ifelse(is.na(mother_spanish), femcare_spanish, mother_spanish),
+         mother_bilingual = ifelse(is.na(mother_bilingual), femcare_bilingual, mother_bilingual),
+         mother_dpto_born  = ifelse(is.na(mother_dpto_born), femcare_dpto_born, mother_dpto_born),
+         mother_area_born = ifelse(is.na(mother_area_born), femcare_area_born, mother_area_born),
+         mother_years_school = ifelse(is.na(mother_years_school), femcare_years_school, mother_years_school),
+         father_age = ifelse(is.na(father_age), mencare_age, father_age),
+         father_illiterate = ifelse(is.na(father_illiterate), mencare_illiterate, father_illiterate),
+         father_guarani = ifelse(is.na(father_guarani), mencare_guarani, father_guarani),
+         father_spanish = ifelse(is.na(father_spanish), mencare_spanish, father_spanish),
+         father_bilingual = ifelse(is.na(father_bilingual), mencare_bilingual, father_bilingual),
+         father_dpto_born  = ifelse(is.na(father_dpto_born), mencare_dpto_born, father_dpto_born),
+         father_area_born = ifelse(is.na(father_area_born), mencare_area_born, father_area_born),
+         father_years_school = ifelse(is.na(father_years_school), mencare_years_school, father_years_school)) %>% 
+  mutate(mother_age = ifelse(is.na(mother_age), mencare_age, mother_age),
+         mother_illiterate = ifelse(is.na(mother_illiterate), mencare_illiterate, mother_illiterate),
+         mother_guarani = ifelse(is.na(mother_guarani), mencare_guarani, mother_guarani),
+         mother_spanish = ifelse(is.na(mother_spanish), mencare_spanish, mother_spanish),
+         mother_bilingual = ifelse(is.na(mother_bilingual), mencare_bilingual, mother_bilingual),
+         mother_dpto_born  = ifelse(is.na(mother_dpto_born), mencare_dpto_born, mother_dpto_born),
+         mother_area_born = ifelse(is.na(mother_area_born), mencare_area_born, mother_area_born),
+         mother_years_school = ifelse(is.na(mother_years_school), mencare_years_school, mother_years_school),
+         father_age = ifelse(is.na(father_age), femcare_age, father_age),
+         father_illiterate = ifelse(is.na(father_illiterate), femcare_illiterate, father_illiterate),
+         father_guarani = ifelse(is.na(father_guarani), femcare_guarani, father_guarani),
+         father_spanish = ifelse(is.na(father_spanish), femcare_spanish, father_spanish),
+         father_bilingual = ifelse(is.na(father_bilingual), femcare_bilingual, father_bilingual),
+         father_dpto_born  = ifelse(is.na(father_dpto_born), femcare_dpto_born, father_dpto_born),
+         father_area_born = ifelse(is.na(father_area_born), femcare_area_born, father_area_born),
+         father_years_school = ifelse(is.na(father_years_school), femcare_years_school, father_years_school))
+
+#if wanted to fill in missings with medians, but seem better to use household information as above.
+# mutate_at(vars(mother_age, mother_years_school, father_age, father_years_school), ~ ifelse(is.na(.x), median(.x, na.rm = TRUE), .x)) %>%
+
+# check for variables with NA's
+# names(children_fill %>% select_if(function(x) any(is.na(x))))
+
+#some exploration
+# p <- qplot(data = children_fill, mother_age, father_age, xlab = "", ylab = "")
+# p1 <- p + geom_smooth(method = "loess", size = 1.5)
+# 
+# p2 <- qplot(data = children_fill, mother_age, dropout, xlab = "", ylab = "")
+# p3 <- p2 + geom_smooth(method = "loess", size = 1.5)
+# 
+# summary(lm(children_fill$mother_age ~ children_fill$father_age))
+
