@@ -99,10 +99,10 @@ mother <-
   mutate(mother_present = 1) %>% 
   rename(person_id = mother_id) %>% 
   left_join(pop) %>% 
-  rename(mother_age = age, mother_illiterate = illiterate, mother_guarani = guarani,
+  rename(mother_age = age, mother_illiterate = illiterate, mother_language = language, mother_guarani = guarani,
          mother_spanish = spanish, mother_bilingual = bilingual, mother_dpto_born = dpto_born,
          mother_area_born = area_born, mother_years_school = years_school) %>% 
-  select(person_id, mother_present, mother_age, mother_illiterate, mother_guarani,
+  select(person_id, mother_present, mother_age, mother_illiterate, mother_language, mother_guarani,
          mother_spanish, mother_bilingual, mother_dpto_born, mother_area_born, mother_years_school) %>% 
   rename(mother_id = person_id)
   
@@ -115,10 +115,10 @@ father <-
   mutate(father_present = 1) %>% 
   rename(person_id = father_id) %>% 
   left_join(pop) %>% 
-  rename(father_age = age, father_illiterate = illiterate, father_guarani = guarani,
+  rename(father_age = age, father_illiterate = illiterate, father_language = language, father_guarani = guarani,
          father_spanish = spanish, father_bilingual = bilingual, father_dpto_born = dpto_born,
          father_area_born = area_born, father_years_school = years_school) %>% 
-  select(person_id, father_present, father_age, father_illiterate, father_guarani,
+  select(person_id, father_present, father_age, father_illiterate, father_language, father_guarani,
          father_spanish, father_bilingual, father_dpto_born, father_area_born, father_years_school) %>% 
   rename(father_id = person_id)
 
@@ -179,6 +179,7 @@ children_fill <-
   children %>% 
   mutate(mother_age = ifelse(is.na(mother_age), femcare_age, mother_age),
          mother_illiterate = ifelse(is.na(mother_illiterate), femcare_illiterate, mother_illiterate),
+         mother_language = ifelse(is.na(mother_language), femcare_language, mother_language),
          mother_guarani = ifelse(is.na(mother_guarani), femcare_guarani, mother_guarani),
          mother_spanish = ifelse(is.na(mother_spanish), femcare_spanish, mother_spanish),
          mother_bilingual = ifelse(is.na(mother_bilingual), femcare_bilingual, mother_bilingual),
@@ -187,6 +188,7 @@ children_fill <-
          mother_years_school = ifelse(is.na(mother_years_school), femcare_years_school, mother_years_school),
          father_age = ifelse(is.na(father_age), mencare_age, father_age),
          father_illiterate = ifelse(is.na(father_illiterate), mencare_illiterate, father_illiterate),
+         father_language = ifelse(is.na(father_language), mencare_language, father_language),
          father_guarani = ifelse(is.na(father_guarani), mencare_guarani, father_guarani),
          father_spanish = ifelse(is.na(father_spanish), mencare_spanish, father_spanish),
          father_bilingual = ifelse(is.na(father_bilingual), mencare_bilingual, father_bilingual),
@@ -195,6 +197,7 @@ children_fill <-
          father_years_school = ifelse(is.na(father_years_school), mencare_years_school, father_years_school)) %>% 
   mutate(mother_age = ifelse(is.na(mother_age), mencare_age, mother_age),
          mother_illiterate = ifelse(is.na(mother_illiterate), mencare_illiterate, mother_illiterate),
+         mother_language = ifelse(is.na(mother_language), mencare_language, mother_language),
          mother_guarani = ifelse(is.na(mother_guarani), mencare_guarani, mother_guarani),
          mother_spanish = ifelse(is.na(mother_spanish), mencare_spanish, mother_spanish),
          mother_bilingual = ifelse(is.na(mother_bilingual), mencare_bilingual, mother_bilingual),
@@ -203,6 +206,7 @@ children_fill <-
          mother_years_school = ifelse(is.na(mother_years_school), mencare_years_school, mother_years_school),
          father_age = ifelse(is.na(father_age), femcare_age, father_age),
          father_illiterate = ifelse(is.na(father_illiterate), femcare_illiterate, father_illiterate),
+         father_language = ifelse(is.na(father_language), femcare_language, father_language),
          father_guarani = ifelse(is.na(father_guarani), femcare_guarani, father_guarani),
          father_spanish = ifelse(is.na(father_spanish), femcare_spanish, father_spanish),
          father_bilingual = ifelse(is.na(father_bilingual), femcare_bilingual, father_bilingual),
@@ -257,7 +261,10 @@ autoplot(km_caretaker_fit)
 km_order_fit <- survfit(Surv(years_school, dropout) ~ birth_order, data=children_fill)
 autoplot(km_order_fit)
 
-
+# Cox PH ---------------------------------------------------------------------------------------
+cox <- coxph(Surv(years_school, dropout) ~ language + caretaker + female + mother_years_school + father_years_school + mother_age +
+               father_age + mother_illiterate + father_illiterate + birth_order + adv_housing, data = children_fill)
+summary(cox)
 
 #some exploration
 # p <- qplot(data = children_fill, mother_age, father_age, xlab = "", ylab = "")
