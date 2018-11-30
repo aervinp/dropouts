@@ -65,7 +65,7 @@ children <-
   children %>% 
   mutate(never_started_school = as.numeric(years_school == 0 & enrolled_school == 0),
          delayed_school = as.numeric(years_school<9 & ((age-years_school) > 7) & enrolled_school == 1),
-         dropout = as.numeric(years_school < 9 & enrolled_school == 0)) %>% 
+         dropout = as.numeric(years_school < 12 & enrolled_school == 0)) %>% 
   select(child_id, never_started_school, years_school, enrolled_school, delayed_school, age, dropout, everything())
 
 #birth order
@@ -227,6 +227,37 @@ children_fill <-
 
 # Prep analysis ---------------------------------------------------------------
 names(children_fill)
+
+children_fill <- 
+  children_fill %>% 
+  mutate(language = factor(language, labels = c("Guarani", "Bilingual", "Spanish")))
+
+
+# KM Analysis ------------------------------
+#kaplan meier survival curve
+library(survival)
+library(ggfortify)
+km <- with(children_fill, Surv(years_school, dropout))
+
+#simplest possible model: kaplan meier to estimate probability of survival time
+km_fit <- survfit(Surv(years_school, dropout) ~ 1, data=children_fill)
+summary(km_fit, times = c(1:13))
+
+autoplot(km_fit)
+
+#survival by language
+km_lang_fit <- survfit(Surv(years_school, dropout) ~ language, data=children_fill)
+autoplot(km_lang_fit)
+
+#survival by caretaker
+km_caretaker_fit <- survfit(Surv(years_school, dropout) ~ caretaker, data=children_fill)
+autoplot(km_caretaker_fit)
+
+#survival by birthorder #need to record 5 or 6+
+km_order_fit <- survfit(Surv(years_school, dropout) ~ birth_order, data=children_fill)
+autoplot(km_order_fit)
+
+
 
 #some exploration
 # p <- qplot(data = children_fill, mother_age, father_age, xlab = "", ylab = "")
