@@ -195,6 +195,10 @@ children_fill <-
          father_dpto_born  = ifelse(is.na(father_dpto_born), mencare_dpto_born, father_dpto_born),
          father_area_born = ifelse(is.na(father_area_born), mencare_area_born, father_area_born),
          father_years_school = ifelse(is.na(father_years_school), mencare_years_school, father_years_school)) %>% 
+  mutate(no_females = case_when(is.na(mother_age) ~ 1,
+                                TRUE ~ 0),
+         no_males = case_when(is.na(father_age) ~ 1,
+                              TRUE ~ 0)) %>% 
   mutate(mother_age = ifelse(is.na(mother_age), mencare_age, mother_age),
          mother_illiterate = ifelse(is.na(mother_illiterate), mencare_illiterate, mother_illiterate),
          mother_language = ifelse(is.na(mother_language), mencare_language, mother_language),
@@ -234,7 +238,8 @@ names(children_fill)
 
 children_fill <- 
   children_fill %>% 
-  mutate(language = factor(language, labels = c("Guarani", "Bilingual", "Spanish")))
+  mutate(language = factor(language, labels = c("Guarani", "Bilingual", "Spanish")),
+         dpto_born = factor(dpto_born))
 
 
 # KM Analysis ------------------------------
@@ -263,7 +268,8 @@ autoplot(km_order_fit)
 
 # Cox PH ---------------------------------------------------------------------------------------
 cox <- coxph(Surv(years_school, dropout) ~ language + caretaker + female + mother_years_school + father_years_school + mother_age +
-               father_age + mother_illiterate + father_illiterate + birth_order + adv_housing, data = children_fill)
+               father_age + mother_illiterate + father_illiterate + birth_order + adv_housing + no_females + no_males +
+               dpto_born + area_born, data = children_fill)
 summary(cox)
 
 #some exploration
